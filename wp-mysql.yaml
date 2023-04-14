@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: wp-micro
+
+---   
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: wp-micro
+  name: wp-db-deployment
+  labels:
+    app: wp-db-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wp-db-app
+  template:
+    metadata:
+      labels:
+        app: wp-db-app
+    spec:
+      containers:
+        - name: search-db-app
+          image: mysql:5.7
+          ports:
+          - containerPort: 3306
+          envFrom:
+            - secretRef:
+                name: wp-secret-mysql
+            - configMapRef:
+                name: configmap-msql
+          volumeMounts:
+            - name: wp-pv-db
+              mountPath: /var/lib/mysql
+      volumes:
+        - name: wp-pv-db
+          persistentVolumeClaim:
+            claimName: mysql-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: wp-micro
+  name: wp-db-service
+spec:
+  type: ClusterIP
+  selector:
+    app: wp-db-app
+  ports:
+  - port: 3306
+    targetPort: 3306
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: wp-micro
+  name: wp-pv
+  labels:
+    app: mysql
+spec:
+  capacity:
+    storage: 2Gi
+  volumeMode: Filesystem
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: manual
+  hostPath:
+    path: /mnt/data/db
+  
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: wp-micro
+  name: mysql-pvc
+spec:
+  selector:
+    matchLabels:
+      app: mysql
+  storageClassName: manual
+  resources:
+    requests:
+      storage: 2Gi
+  # volumeMode: Filesystem
+  accessModes:
+  - ReadWriteOnce
+
+
